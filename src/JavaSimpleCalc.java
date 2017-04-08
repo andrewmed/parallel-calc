@@ -34,24 +34,20 @@ public class JavaSimpleCalc {
 
     private double expression() {
         double x = term();
-        while (true) {
-            if (expect('+'))
-                x += term();
-            else if (expect('-'))
-                x -= term();
-            else return x;
-        }
+        if (expect('+'))
+            x += term();
+        else if (expect('-'))
+            x -= term();
+        return x;
     }
 
     private double term() {
         double x = factor();
-        while (true) {
             if (expect('*'))
                 x *= factor();
             else if (expect('/'))
                 x /= factor();
-            else return x;
-        }
+            return x;
     }
 
     private double factor() {
@@ -67,22 +63,22 @@ public class JavaSimpleCalc {
     private double number() {
         double x = 0;
         boolean negative = false;
-        if (C == '-') {
-            negative = true;
+        if (C == '-' || C == '+') {
+            if (C == '-')
+                negative = true;
             read();
         }
-        else if (C == '+')
-            read();
         if (Character.isDigit(C)) {
             while (Character.isDigit(C)) {
                 x = x * 10 + Character.getNumericValue(C);
                 read();
             }
             if (C == '.') {
-                int pos = 1;
+                int div = 1;
                 read();
                 while (Character.isDigit(C)) {
-                    x = x + Character.getNumericValue(C) / Math.pow(10, pos++);
+                    div *= 10;
+                    x = x + (double) Character.getNumericValue(C) / div;
                     read();
                 }
             }
@@ -101,6 +97,7 @@ public class JavaSimpleCalc {
         assert (new JavaSimpleCalc("2 * 2 + 3 * 2").calc() == 10); // spaces
         assert (new JavaSimpleCalc("(1 + 1) * 2").calc() == 4); // subexpression
         assert (new JavaSimpleCalc("2 * (1 + 1)").calc() == 4); // subexpression
+        assert (new JavaSimpleCalc("((1 - 2) * 2)").calc() == -2); // nested expression
         assert (new JavaSimpleCalc("(-1 + 2) * 2").calc() == 2); // negative number
         assert (new JavaSimpleCalc("(1 + 2) * -2").calc() == -6); // negative number
         assert (new JavaSimpleCalc("(1 - +2) * +2").calc() == -2); // positive number
