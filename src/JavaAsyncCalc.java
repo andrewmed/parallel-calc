@@ -45,6 +45,11 @@ public class JavaAsyncCalc {
         }
     }
 
+    @Override
+    public String toString() {
+        return root.toString();
+    }
+
     public JavaAsyncCalc(String s) {
         R = s.toCharArray();
         if (R.length > 0)
@@ -68,7 +73,7 @@ public class JavaAsyncCalc {
 
     public void parse() {
         AST exp = expression();
-        root = C == '\00' ? exp : new AST(null, new AST(null, new AST(0D), null), null); // if error in parsing just return 0
+        root = C == '\00' ? exp : new AST(0D); // if error in parsing just return 0
     }
 
     private AST expression() {
@@ -77,7 +82,7 @@ public class JavaAsyncCalc {
             return new AST('+', left, expression());
         else if (expect('-'))
             return new AST('-', left, expression());
-        return new AST(null, left, null);
+        return new AST(left);
     }
 
     private AST term() {
@@ -124,33 +129,43 @@ public class JavaAsyncCalc {
         return negative ? -x : x;
     }
 
-    public static void test(String s1, String s2) {
-        assert (s1.equals(s2)) : String.format("Expected \"%s\" but get \"%s\"", s2, s1);
+    public double calc() {
+        return 0D; // FIXME
+    }
+
+    public static void testAST(JavaAsyncCalc c, String s) {
+        String ast = c.toString();
+        assert (ast.equals(s)) : String.format("Expected \"%s\" but get \"%s\"", s, ast);
+    }
+
+    public static void testCalc(JavaAsyncCalc c, double d) {
+        double x = c.calc();
+        assert (x == d) : String.format("Expected \"%d\" but get \"%d\"", d, x);
     }
 
     public static void main(String[] args) {
 
         // -ea REMEMBER
-        test(new JavaAsyncCalc("").root.toString(), "0.0"); // empty
-        test(new JavaAsyncCalc("2").root.toString(), "2.0"); // number
-        test(new JavaAsyncCalc("2+2").root.toString(), "(+ 2.0 2.0)"); // terms
-        test(new JavaAsyncCalc("2+2+2").root.toString(), "(+ 2.0 (+ 2.0 2.0))"); // terms
-        test(new JavaAsyncCalc("3*3*3").root.toString(), "(* 3.0 (* 3.0 3.0))"); // terms
-        test(new JavaAsyncCalc("2*2+3*2").root.toString(), "(+ (* 2.0 2.0) (* 3.0 2.0))"); // factors
-        test(new JavaAsyncCalc("2 * 2 + 3 * 2").root.toString(), "(+ (* 2.0 2.0) (* 3.0 2.0))"); // spaces
-        test(new JavaAsyncCalc("(1 + 1) * 2").root.toString(), "(* (+ 1.0 1.0) 2.0)"); // subexpression
-        test(new JavaAsyncCalc("2 * (1 + 1)").root.toString(), "(* 2.0 (+ 1.0 1.0))"); // subexpression
-        test(new JavaAsyncCalc("((1 - 2) * 2)").root.toString(), "(* (- 1.0 2.0) 2.0)"); // nested expression
-        test(new JavaAsyncCalc("(-1 + 2) * 2").root.toString(), "(* (+ -1.0 2.0) 2.0)"); // negative number
-        test(new JavaAsyncCalc("(1 + 2) * -2").root.toString(), "(* (+ 1.0 2.0) -2.0)"); // negative number
-        test(new JavaAsyncCalc("(1 - +2) * +2").root.toString(), "(* (- 1.0 2.0) 2.0)"); // positive number
-        test(new JavaAsyncCalc("2 * 2.5").root.toString(), "(* 2.0 2.5)"); // real number
-        test(new JavaAsyncCalc("0.5 * -2.25").root.toString(), "(* 0.5 -2.25)"); // real numbers
-        test(new JavaAsyncCalc("(-1) * -2 - -3").root.toString(), "(- (* -1.0 -2.0) -3.0)"); // smth weird
-        test(new JavaAsyncCalc("(1-1)*2+3*(1-3+4)+10/2").root.toString(), "(+ (* (- 1.0 1.0) 2.0) (+ (* 3.0 (- 1.0 (+ 3.0 4.0))) (/ 10.0 2.0)))"); // large
+        testAST(new JavaAsyncCalc(""), "0.0"); // empty
+        testAST(new JavaAsyncCalc("2"), "2.0"); // number
+        testAST(new JavaAsyncCalc("2+2"), "(+ 2.0 2.0)"); // terms
+        testAST(new JavaAsyncCalc("2+2+2"), "(+ 2.0 (+ 2.0 2.0))"); // terms
+        testAST(new JavaAsyncCalc("3*3*3"), "(* 3.0 (* 3.0 3.0))"); // terms
+        testAST(new JavaAsyncCalc("2*2+3*2"), "(+ (* 2.0 2.0) (* 3.0 2.0))"); // factors
+        testAST(new JavaAsyncCalc("2 * 2 + 3 * 2"), "(+ (* 2.0 2.0) (* 3.0 2.0))"); // spaces
+        testAST(new JavaAsyncCalc("(1 + 1) * 2"), "(* (+ 1.0 1.0) 2.0)"); // subexpression
+        testAST(new JavaAsyncCalc("2 * (1 + 1)"), "(* 2.0 (+ 1.0 1.0))"); // subexpression
+        testAST(new JavaAsyncCalc("((1 - 2) * 2)"), "(* (- 1.0 2.0) 2.0)"); // nested expression
+        testAST(new JavaAsyncCalc("(-1 + 2) * 2"), "(* (+ -1.0 2.0) 2.0)"); // negative number
+        testAST(new JavaAsyncCalc("(1 + 2) * -2"), "(* (+ 1.0 2.0) -2.0)"); // negative number
+        testAST(new JavaAsyncCalc("(1 - +2) * +2"), "(* (- 1.0 2.0) 2.0)"); // positive number
+        testAST(new JavaAsyncCalc("2 * 2.5"), "(* 2.0 2.5)"); // real number
+        testAST(new JavaAsyncCalc("0.5 * -2.25"), "(* 0.5 -2.25)"); // real numbers
+        testAST(new JavaAsyncCalc("(-1) * -2 - -3"), "(- (* -1.0 -2.0) -3.0)"); // smth weird
+        testAST(new JavaAsyncCalc("(1-1)*2+3*(1-3+4)+10/2"), "(+ (* (- 1.0 1.0) 2.0) (+ (* 3.0 (- 1.0 (+ 3.0 4.0))) (/ 10.0 2.0)))"); // large
 //
-        test(new JavaAsyncCalc("10%3").root.toString(), "0.0"); // if not supported, just get 0
-        test(new JavaAsyncCalc("10-a").root.toString(), "0.0"); // if not supported, just get 0
+        testAST(new JavaAsyncCalc("10%3"), "0.0"); // if not supported, just get 0
+        testAST(new JavaAsyncCalc("10-a"), "0.0"); // if not supported, just get 0
 
         System.out.println("passed");
     }
