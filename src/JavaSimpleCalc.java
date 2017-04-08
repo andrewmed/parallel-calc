@@ -1,4 +1,8 @@
 /**
+ * Supported operations:
+ * basic ariphmetic operations: + - / *
+ * grouping: ()
+ * <p>
  * Rules:
  * Numbers should have their sign (positive/negative), if any, attached without spaces
  */
@@ -34,20 +38,26 @@ public class JavaSimpleCalc {
 
     private double expression() {
         double x = term();
-        if (expect('+'))
-            x += term();
-        else if (expect('-'))
-            x -= term();
-        return x;
+        while (true) {
+            if (expect('+'))
+                x += term();
+            else if (expect('-'))
+                x -= term();
+            else
+                return x;
+        }
     }
 
     private double term() {
         double x = factor();
+        while (true) {
             if (expect('*'))
                 x *= factor();
             else if (expect('/'))
                 x /= factor();
-            return x;
+            else
+                return x;
+        }
     }
 
     private double factor() {
@@ -93,6 +103,8 @@ public class JavaSimpleCalc {
         assert (new JavaSimpleCalc("").calc() == 0); // empty
         assert (new JavaSimpleCalc("2").calc() == 2); // number
         assert (new JavaSimpleCalc("2+2").calc() == 4); // terms
+        assert (new JavaSimpleCalc("2+2+2").calc() == 6); // terms
+        assert (new JavaSimpleCalc("3*3*3").calc() == 27); // terms
         assert (new JavaSimpleCalc("2*2+3*2").calc() == 10); // factors
         assert (new JavaSimpleCalc("2 * 2 + 3 * 2").calc() == 10); // spaces
         assert (new JavaSimpleCalc("(1 + 1) * 2").calc() == 4); // subexpression
@@ -104,6 +116,7 @@ public class JavaSimpleCalc {
         assert (new JavaSimpleCalc("2 * 2.5").calc() == 5); // real number
         assert (new JavaSimpleCalc("0.5 * -2.25").calc() == -1.125); // real numbers
         assert (new JavaSimpleCalc("(-1) * -2 - -3").calc() == 5); // smth weird
+        assert (new JavaSimpleCalc("(1-1)*2+3*(1-3+4)+10/2").calc() == 11); // large
 
         assert (new JavaSimpleCalc("10%3").calc() == 0); // if not supported, just get 0
         assert (new JavaSimpleCalc("10-a").calc() == 0); // if not supported, just get 0
