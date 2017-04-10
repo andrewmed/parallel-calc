@@ -77,15 +77,21 @@ public class JavaAsyncCalc {
     }
 
     private AST expression() {
-        AST left = term();
-        if (expect('+'))
-            return new AST('+', left, expression());
-        else if (expect('-'))
-            return new AST('-', left, expression());
-        return new AST(left);
+        // left-associativity, iteration
+        AST ast = term();
+        boolean plus;
+        boolean minus;
+        while ((plus = expect('+')) || (minus = expect('-'))) {
+            if (plus)
+                ast = new AST('+', ast, term());
+            else
+                ast = new AST('-', ast, term());
+        }
+        return ast;
     }
 
     private AST term() {
+        // right-associativity, recursion
         AST left = factor();
         if (expect('*'))
             return new AST('*', left, term());
@@ -149,7 +155,9 @@ public class JavaAsyncCalc {
         testAST(new JavaAsyncCalc(""), "0.0"); // empty
         testAST(new JavaAsyncCalc("2"), "2.0"); // number
         testAST(new JavaAsyncCalc("2+2"), "(+ 2.0 2.0)"); // terms
-        testAST(new JavaAsyncCalc("2+2+2"), "(+ 2.0 (+ 2.0 2.0))"); // terms
+        testAST(new JavaAsyncCalc("3-2"), "(- 3.0 2.0)"); // terms
+        testAST(new JavaAsyncCalc("2+2+2"), "(+ (+ 2.0 2.0) 2.0)"); // terms
+        testAST(new JavaAsyncCalc("3-2-1"), "(- (- 3.0 2.0) 1.0)"); // terms
         testAST(new JavaAsyncCalc("3*3*3"), "(* 3.0 (* 3.0 3.0))"); // terms
         testAST(new JavaAsyncCalc("2*2+3*2"), "(+ (* 2.0 2.0) (* 3.0 2.0))"); // factors
         testAST(new JavaAsyncCalc("2 * 2 + 3 * 2"), "(+ (* 2.0 2.0) (* 3.0 2.0))"); // spaces
@@ -162,7 +170,7 @@ public class JavaAsyncCalc {
         testAST(new JavaAsyncCalc("2 * 2.5"), "(* 2.0 2.5)"); // real number
         testAST(new JavaAsyncCalc("0.5 * -2.25"), "(* 0.5 -2.25)"); // real numbers
         testAST(new JavaAsyncCalc("(-1) * -2 - -3"), "(- (* -1.0 -2.0) -3.0)"); // smth weird
-        testAST(new JavaAsyncCalc("(1-1)*2+3*(1-3+4)+10/2"), "(+ (* (- 1.0 1.0) 2.0) (+ (* 3.0 (- 1.0 (+ 3.0 4.0))) (/ 10.0 2.0)))"); // large
+        testAST(new JavaAsyncCalc("(1-1)*2+3*(1-3+4)+10/2"), "(+ (+ (* (- 1.0 1.0) 2.0) (* 3.0 (+ (- 1.0 3.0) 4.0))) (/ 10.0 2.0))"); // large
 //
         testAST(new JavaAsyncCalc("10%3"), "0.0"); // if not supported, just get 0
         testAST(new JavaAsyncCalc("10-a"), "0.0"); // if not supported, just get 0
