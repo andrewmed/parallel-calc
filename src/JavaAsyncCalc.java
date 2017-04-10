@@ -1,3 +1,7 @@
+import java.util.concurrent.*;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
+
 /**
  * Supported operations:
  * basic ariphmetic operations: + - / *
@@ -8,12 +12,19 @@
  * <p>
  * To build Async Calc I need some other approach, because I do not know how to implement recursive
  * descend in parallel, so I am building an AST first...
+ *
+ * N.B. Calling in parallel (with Asyncs) does not make this calculator faster,
+ * but this approach will speed up other cpu-intensive tasks on multicore cpu(s)
  */
 public class JavaAsyncCalc {
+    private final boolean DEBUG = true;
+
     char[] R; // string
     char C = '\00'; // current char
     int P; // current position
     public AST root;
+
+    Executor executor;
 
     class AST {
         Character op;
@@ -45,12 +56,58 @@ public class JavaAsyncCalc {
         }
     }
 
+    public class Computor implements Supplier {
+        AST ast;
+        public Computor(AST ast) {
+            this.ast = ast;
+        }
+        @Override
+        public Double get() {
+            double result = 0;
+            try {
+                if (ast.num != null)
+                    return ast.num;
+                CompletableFuture<Double> left = CompletableFuture.supplyAsync(new Computor(ast.left));
+                if (ast.op == null)
+                    return left.get();
+                CompletableFuture<Double> right = CompletableFuture.supplyAsync(new Computor(ast.right));
+                BiFunction<Double, Double, Double> fn;
+                switch (ast.op) {
+                    case '+':
+                        fn = (x, y) -> x + y;
+                        break;
+                    case '-':
+                        fn = (x, y) -> x - y;
+                        break;
+                    case '*':
+                        fn = (x, y) -> x * y;
+                        break;
+                    case '/':
+                        fn = (x, y) -> x / y;
+                        break;
+                    default:
+                        throw new RuntimeException("Not yet implemented: " + ast.op);
+                }
+                CompletableFuture<Double> combinator = left.thenCombineAsync(right, fn, executor);
+                if (DEBUG)
+                    System.out.println(String.format("DEBUG: %s in thread %s", ast.toString(), Thread.currentThread().getId()));
+                result = combinator.get();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+            return result;
+        }
+    }
+
     @Override
     public String toString() {
         return root.toString();
     }
 
     public JavaAsyncCalc(String s) {
+        int cpu = Runtime.getRuntime().availableProcessors();
+//        executor = new ThreadPoolExecutor(1, 1, 100 , TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(1));
+        executor = ForkJoinPool.commonPool();
         R = s.toCharArray();
         if (R.length > 0)
             C = R[0];
@@ -136,8 +193,9 @@ public class JavaAsyncCalc {
     }
 
     public double calc() {
-        return 0D; // FIXME
+        return new Computor(root).get(); //blocking
     }
+
 
     public static void testAST(JavaAsyncCalc c, String s) {
         String ast = c.toString();
@@ -146,7 +204,7 @@ public class JavaAsyncCalc {
 
     public static void testCalc(JavaAsyncCalc c, double d) {
         double x = c.calc();
-        assert (x == d) : String.format("Expected \"%d\" but get \"%d\"", d, x);
+        assert (x == d) : String.format("Expected \"%f\" but get \"%f\"", d, x);
     }
 
     public static void main(String[] args) {
@@ -171,11 +229,30 @@ public class JavaAsyncCalc {
         testAST(new JavaAsyncCalc("0.5 * -2.25"), "(* 0.5 -2.25)"); // real numbers
         testAST(new JavaAsyncCalc("(-1) * -2 - -3"), "(- (* -1.0 -2.0) -3.0)"); // smth weird
         testAST(new JavaAsyncCalc("(1-1)*2+3*(1-3+4)+10/2"), "(+ (+ (* (- 1.0 1.0) 2.0) (* 3.0 (+ (- 1.0 3.0) 4.0))) (/ 10.0 2.0))"); // large
-//
         testAST(new JavaAsyncCalc("10%3"), "0.0"); // if not supported, just get 0
         testAST(new JavaAsyncCalc("10-a"), "0.0"); // if not supported, just get 0
 
+        testCalc(new JavaAsyncCalc(""), 0D); // empty
+        testCalc(new JavaAsyncCalc("2"), 2D); // number
+        testCalc(new JavaAsyncCalc("2+2"), 4D); // terms
+        testCalc(new JavaAsyncCalc("2+2+2"), 6D); // terms
+        testCalc(new JavaAsyncCalc("3-2-1"), 0); // terms
+        testCalc(new JavaAsyncCalc("3*3*3"), 27D); // terms
+        testCalc(new JavaAsyncCalc("2*2+3*2"), 10D); // factors
+        testCalc(new JavaAsyncCalc("2 * 2 + 3 * 2"), 10D); // spaces
+        testCalc(new JavaAsyncCalc("(1 + 1) * 2"), 4D); // subexpression
+        testCalc(new JavaAsyncCalc("2 * (1 + 1)"), 4D); // subexpression
+        testCalc(new JavaAsyncCalc("((1 - 2) * 2)"), -2D); // nested expression
+        testCalc(new JavaAsyncCalc("(-1 + 2) * 2"), 2D); // negative number
+        testCalc(new JavaAsyncCalc("(1 + 2) * -2"), -6D); // negative number
+        testCalc(new JavaAsyncCalc("(1 - +2) * +2"), -2D); // positive number
+        testCalc(new JavaAsyncCalc("2 * 2.5"), 5D); // real number
+        testCalc(new JavaAsyncCalc("0.5 * -2.25"), -1.125D); // real numbers
+        testCalc(new JavaAsyncCalc("(-1) * -2 - -3"), 5D); // smth weird
+        testCalc(new JavaAsyncCalc("(1-1)*2+3*(1-3+4)+10/2"), 11D); // large
+        testCalc(new JavaAsyncCalc("10%3"), 0D); // if not supported, just get 0
+        testCalc(new JavaAsyncCalc("10-a"), 0D); // if not supported, just get 0
+
         System.out.println("passed");
     }
-
 }
