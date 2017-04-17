@@ -12,7 +12,7 @@ import java.util.function.Supplier;
  * <p>
  * To build Async Calc I need some other approach, because I do not know how to implement recursive
  * descend in parallel, so I am building an AST first...
- *
+ * <p>
  * N.B. Calling in parallel (with Asyncs) does not make this calculator faster,
  * but this approach will speed up other cpu-intensive tasks on multicore cpu(s)
  */
@@ -26,7 +26,7 @@ public class JavaAsyncCalc {
 
     Executor executor;
 
-    class AST {
+    static class AST {
         Character op;
         Double num;
         AST left;
@@ -58,9 +58,11 @@ public class JavaAsyncCalc {
 
     public class Computor implements Supplier {
         AST ast;
+
         public Computor(AST ast) {
             this.ast = ast;
         }
+
         @Override
         public Double get() {
             double result = 0;
@@ -69,7 +71,9 @@ public class JavaAsyncCalc {
                     return ast.num;
                 CompletableFuture<Double> left = CompletableFuture.supplyAsync(new Computor(ast.left));
                 if (ast.op == null)
-                    return left.get();
+                    return left.get(); // blocking
+                if (DEBUG)
+                    System.out.println(String.format("DEBUG: STARTED\t %s in thread %s - %d", ast.toString(), Thread.currentThread().getId(), System.currentTimeMillis() % 1024));
                 CompletableFuture<Double> right = CompletableFuture.supplyAsync(new Computor(ast.right));
                 BiFunction<Double, Double, Double> fn;
                 switch (ast.op) {
@@ -89,9 +93,9 @@ public class JavaAsyncCalc {
                         throw new RuntimeException("Not yet implemented: " + ast.op);
                 }
                 CompletableFuture<Double> combinator = left.thenCombineAsync(right, fn, executor);
+                result = combinator.get(); //blocking
                 if (DEBUG)
-                    System.out.println(String.format("DEBUG: %s in thread %s", ast.toString(), Thread.currentThread().getId()));
-                result = combinator.get();
+                    System.out.println(String.format("DEBUG: DONE\t %s in thread %s - %d", ast.toString(), Thread.currentThread().getId(), System.currentTimeMillis() % 1024));
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -105,8 +109,6 @@ public class JavaAsyncCalc {
     }
 
     public JavaAsyncCalc(String s) {
-        int cpu = Runtime.getRuntime().availableProcessors();
-//        executor = new ThreadPoolExecutor(1, 1, 100 , TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(1));
         executor = ForkJoinPool.commonPool();
         R = s.toCharArray();
         if (R.length > 0)
